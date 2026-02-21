@@ -62,7 +62,7 @@ fun RescueActiveView(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "You will get a notification when there is a\ncancelled order nearby in ${state.location.name}.",
+            text = "You will get an alarm reminder when there is a\ncancelled order nearby in ${state.location.name}.",
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             color = JomatoTheme.TextGray,
             fontSize = 14.sp,
@@ -112,7 +112,7 @@ fun RescueActiveView(
             colors = ButtonDefaults.outlinedButtonColors(contentColor = JomatoTheme.TextGray)
         ) {
             Text(
-                "SEND TEST NOTIFICATION",
+                "TEST ALARM",
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold
             )

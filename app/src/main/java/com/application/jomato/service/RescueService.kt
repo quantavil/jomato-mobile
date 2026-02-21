@@ -44,7 +44,7 @@ class FoodRescueService : Service() {
         const val CHANNEL_ID_ALERTS = "jomato_alerts_channel_v2"
         const val NOTIFICATION_ID = 1001
         const val TARGET_PACKAGE = "com.application.zomato"
-        const val NOTIFICATION_COOLDOWN_MS = 180_000L
+        const val ALERT_COOLDOWN_MS = 180_000L
         const val MESSAGE_STALE_MS = 120_000L
     }
 
@@ -83,7 +83,7 @@ class FoodRescueService : Service() {
 
         if (intent?.action == ACTION_TEST) {
             FileLogger.log(this, "Service", "Manual Test Triggered")
-            sendAlertNotification()
+            triggerAlert()
             return START_STICKY
         }
 
@@ -313,17 +313,17 @@ class FoodRescueService : Service() {
             FileLogger.log(this, "Logic", ">>> NEW FRESH ORDER CANCELLED ($msgId) <<<")
 
             // 4. NOTIFICATION COOLDOWN (The "Spam" Filter)
-            val lastNotificationTime = Prefs.getLastNotificationTime(this)
+            val lastAlertTime = Prefs.getLastNotificationTime(this)
             val now = System.currentTimeMillis()
-            val timeSinceLast = now - lastNotificationTime
+            val timeSinceLast = now - lastAlertTime
 
-            if (timeSinceLast >= NOTIFICATION_COOLDOWN_MS) {
-                FileLogger.log(this, "Logic", "Cooldown expired ($timeSinceLast > $NOTIFICATION_COOLDOWN_MS). Sending Notification.")
-                sendAlertNotification()
+            if (timeSinceLast >= ALERT_COOLDOWN_MS) {
+                FileLogger.log(this, "Logic", "Cooldown expired ($timeSinceLast > $ALERT_COOLDOWN_MS). Triggering alert.")
+                triggerAlert()
                 Prefs.saveLastNotification(this, now)
             } else {
-                val remaining = (NOTIFICATION_COOLDOWN_MS - timeSinceLast) / 1000
-                FileLogger.log(this, "Logic", "Notification suppressed. Cooldown active (${remaining}s remaining).")
+                val remaining = (ALERT_COOLDOWN_MS - timeSinceLast) / 1000
+                FileLogger.log(this, "Logic", "Alert suppressed. Cooldown active (${remaining}s remaining).")
             }
 
         } catch (e: Exception) {
@@ -331,7 +331,8 @@ class FoodRescueService : Service() {
         }
     }
 
-    private fun sendAlertNotification() {
+    private fun triggerAlert() {
+        // 1. Show a silent notification popup (tap to open Zomato)
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -340,42 +341,42 @@ class FoodRescueService : Service() {
                 "Food Rescue Alerts",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                enableVibration(true)
-                enableLights(true)
+                setSound(null, null) // silent — AlarmReminder handles sound
+                enableVibration(false)
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-                description = "Notifications for fresh food rescue opportunities"
+                description = "Popup for food rescue opportunities"
             }
             notificationManager.createNotificationChannel(alertChannel)
         }
 
-        var launchIntent = packageManager.getLaunchIntentForPackage("com.application.zomato")
-
+        var launchIntent = packageManager.getLaunchIntentForPackage(TARGET_PACKAGE)
         if (launchIntent == null) {
             launchIntent = Intent(this, MainActivity::class.java)
         }
-
         launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
 
         val pendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            launchIntent,
+            this, 0, launchIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ID_ALERTS)
             .setSmallIcon(R.drawable.ic_notification_jomato)
-            .setContentTitle("Food Rescue Alert!")
-            .setContentText("Click to open Zomato")
+            .setContentTitle("\uD83D\uDD14 Food Rescue Alert!")
+            .setContentText("A cancelled order is nearby \u2014 tap to claim it!")
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setSilent(true) // no notification sound — AlarmReminder handles it
             .setFullScreenIntent(pendingIntent, true)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .build()
 
         notificationManager.notify(System.currentTimeMillis().toInt(), notification)
+
+        // 2. Play loud alarm on STREAM_ALARM (volume = device alarm setting)
+        AlarmReminder.play(this)
+        FileLogger.log(this, "Alert", "Alert triggered")
     }
 
     private fun updateNotification(text: String) {
@@ -423,6 +424,7 @@ class FoodRescueService : Service() {
     override fun onDestroy() {
         FileLogger.log(this, "Service", "Destroying Service")
         isRunning = false
+        AlarmReminder.stop()
         serviceScope.cancel()
         try {
             mqttClient?.disconnect()
