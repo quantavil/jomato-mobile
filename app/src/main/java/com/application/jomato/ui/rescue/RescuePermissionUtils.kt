@@ -2,14 +2,14 @@ package com.application.jomato.ui.rescue
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 import com.application.jomato.Prefs
-import com.application.jomato.utils.FileLogger
-import android.net.Uri
 import com.application.jomato.api.TabbedHomeEssentials
 import com.application.jomato.api.UserLocation
+import com.application.jomato.utils.FileLogger
 
 object RescuePermissionUtils {
 
@@ -18,7 +18,6 @@ object RescuePermissionUtils {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val isIgnoring = pm.isIgnoringBatteryOptimizations(context.packageName)
             FileLogger.log(context, "RescuePermissionUtils", "Checking battery opt for package: ${context.packageName} | Result: $isIgnoring")
-
             if (!isIgnoring) {
                 onShowDialog()
             } else {
