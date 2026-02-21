@@ -19,7 +19,7 @@ import kotlinx.coroutines.*
 object AlarmReminder {
 
     private const val TAG = "AlarmReminder"
-    private const val MAX_DURATION_MS = 10_000L
+    private const val MAX_DURATION_MS = 5_000L
 
     private var mediaPlayer: MediaPlayer? = null
     private var vibrator: Vibrator? = null

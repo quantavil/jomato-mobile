@@ -11,6 +11,8 @@ import java.util.Locale
 
 object FileLogger {
     private const val FILE_NAME = "jomato_daemon.log"
+    private const val MAX_FILE_BYTES = 5 * 1024 * 1024L // 5 MB
+    private const val TRIM_TARGET_BYTES = 3 * 1024 * 1024L // trim to 3 MB
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US)
     private val TOKEN_PATTERN = Regex("(?i)(token|key|auth)=([\\w\\-.]+)?")
     private val PHONE_PATTERN = Regex("\\b\\d{10}\\b")
@@ -25,6 +27,7 @@ object FileLogger {
         }
         try {
             val file = File(context.filesDir, FILE_NAME)
+            trimIfNeeded(file)
             val timestamp = dateFormat.format(Date())
             val cleanMessage = sanitize(message)
             val cleanError = error?.let { "\nStacktrace: ${it.stackTraceToString()}" } ?: ""
@@ -50,12 +53,7 @@ object FileLogger {
     }
 
     fun getLogs(context: Context): String {
-        return try {
-            val file = File(context.filesDir, FILE_NAME)
-            if (file.exists()) file.readText() else "No logs found."
-        } catch (e: Exception) {
-            "Error reading logs: ${e.message}"
-        }
+        return getLastNLines(context, 500)
     }
 
     fun clearLogs(context: Context) {
@@ -65,6 +63,19 @@ object FileLogger {
         } catch (e: Exception) {
             e.printStackTrace()
         }
+    }
+
+    private fun trimIfNeeded(file: File) {
+        try {
+            if (!file.exists() || file.length() < MAX_FILE_BYTES) return
+            val bytes = file.readBytes()
+            val start = (bytes.size - TRIM_TARGET_BYTES.toInt()).coerceAtLeast(0)
+            // find next newline so we don't cut mid-line
+            var offset = start
+            while (offset < bytes.size && bytes[offset] != '\n'.code.toByte()) offset++
+            if (offset < bytes.size) offset++ // skip the newline itself
+            file.writeBytes(bytes.copyOfRange(offset, bytes.size))
+        } catch (_: Exception) {}
     }
 
     fun getLogFile(context: Context): File {

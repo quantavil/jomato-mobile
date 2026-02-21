@@ -43,6 +43,7 @@ class FoodRescueService : Service() {
         const val CHANNEL_ID_FOREGROUND = "jomato_service_channel"
         const val CHANNEL_ID_ALERTS = "jomato_alerts_channel_v2"
         const val NOTIFICATION_ID = 1001
+        const val ALERT_NOTIFICATION_ID = 1002
         const val TARGET_PACKAGE = "com.application.zomato"
         const val ALERT_COOLDOWN_MS = 180_000L
         const val MESSAGE_STALE_MS = 120_000L
@@ -372,7 +373,7 @@ class FoodRescueService : Service() {
             .setAutoCancel(true)
             .build()
 
-        notificationManager.notify(System.currentTimeMillis().toInt(), notification)
+        notificationManager.notify(ALERT_NOTIFICATION_ID, notification)
 
         // 2. Play loud alarm on STREAM_ALARM (volume = device alarm setting)
         AlarmReminder.play(this)
@@ -434,7 +435,7 @@ class FoodRescueService : Service() {
             if (wakeLock?.isHeld == true) wakeLock?.release()
         } catch (e: Exception) {}
 
-        Prefs.setMqttConnectionStatus(true)
+        Prefs.setMqttConnectionStatus(false)
         super.onDestroy()
     }
 
